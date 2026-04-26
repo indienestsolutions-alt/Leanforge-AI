@@ -1,0 +1,48 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents a user of LeadForge AI.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "createdAt"]
+    },
+    "Lead": {
+      "title": "Lead",
+      "description": "Represents a generated lead.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "niche": { "type": "string" },
+        "location": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "website": { "type": "string" },
+        "rating": { "type": "number" },
+        "reviews": { "type": "number" },
+        "status": { "type": "string", "enum": ["new", "contacted", "interested", "rejected"] },
+        "score": { "type": "number" },
+        "summary": { "type": "string" },
+        "outreachMessage": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles."
+    },
+    "/leads/{leadId}": {
+      "schema": "Lead",
+      "description": "Lead records."
+    }
+  }
+}

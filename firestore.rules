@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    // --- User Validation ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'createdAt'])
+        && data.email is string && data.email.size() <= 256
+        && data.createdAt is timestamp;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidUser(incoming())
+        && incoming().email == existing().email; // Immutable email
+    }
+
+    // --- Lead Validation ---
+    function isValidLead(data) {
+      return data.keys().hasAll(['userId', 'name', 'createdAt'])
+        && data.userId == request.auth.uid
+        && data.name is string && data.name.size() <= 200
+        && (data.get('email', '') == '' || data.email is string)
+        && (data.get('phone', '') == '' || data.phone is string)
+        && data.createdAt is timestamp;
+    }
+
+    match /leads/{leadId} {
+      // Secure List Queries: Must filter by userId
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      allow create: if isSignedIn() && isValidLead(incoming()) && isValidId(leadId);
+      
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid 
+        && isValidLead(incoming()) 
+        && incoming().userId == existing().userId
+        && (
+          // Action: Update status
+          (incoming().diff(existing()).affectedKeys().hasOnly(['status'])) ||
+          // Action: Full update (excluding userId)
+          (incoming().diff(existing()).affectedKeys().hasAll(['name']) && !incoming().diff(existing()).affectedKeys().hasAny(['userId']))
+        );
+        
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+  }
+}
